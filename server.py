@@ -1,9 +1,41 @@
-from aiohttp import web
+import asyncio
+import os
+import logging
+
 import aiofiles
+from aiohttp import web
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 async def archive(request):
-    raise NotImplementedError
+    response = web.StreamResponse()
+    response.headers['Content-Type'] = 'application/zip'
+    response.headers['Content-Disposition'] = 'attachment; filename="archive.zip"'
+
+    archive_hash = request.match_info.get('archive_hash')
+    files_path = os.path.join('.', 'photos', archive_hash)
+    if not os.path.exists(files_path):
+        logging.error('Error 404: link to non-existent folder')
+        raise web.HTTPNotFound(text='Error 404\nАрхив не существует или был удален')
+
+    await response.prepare(request)
+
+    files = os.listdir(files_path)
+    proc = await asyncio.subprocess.create_subprocess_exec(
+        'zip', '-r', '-', *files,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        cwd=files_path
+    )
+    while True:
+        chunk = await proc.stdout.read(250)
+        if not chunk:
+            break
+        logging.info('Sending archive chunk ...')
+        await response.write(chunk)
+    return response
 
 
 async def handle_index_page(request):
