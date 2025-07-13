@@ -49,6 +49,16 @@ GET http://host.ru/archive/3bea29ccabbbf64bdebcc055319c5745/
 GET http://host.ru/archive/af1ad8c76fda2e48ea9aed2937e972ea/
 ```
 
+### Аргументы командной строки
+
+```bash
+server.py [-h] [-p PHOTOS_PATH] [-d DELAY] [-nl]
+```
+
+- `-p` - путь до дериктории с файлами для архивизации
+- `-d` - задержка между загрузкой частей архива
+- `-nl` - запуск без логирования
+
 # Цели проекта
 
 Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org).
