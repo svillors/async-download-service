@@ -1,12 +1,10 @@
 import asyncio
 import os
 import logging
+import argparse
 
 import aiofiles
 from aiohttp import web
-
-
-logging.basicConfig(level=logging.INFO)
 
 
 async def archive(request):
@@ -15,7 +13,11 @@ async def archive(request):
     response.headers['Content-Disposition'] = 'attachment; filename="archive.zip"'
 
     archive_hash = request.match_info.get('archive_hash')
-    files_path = os.path.join('.', 'photos', archive_hash)
+    folder_path = request.app.get('photos_path')
+    files_path = os.path.join(folder_path, archive_hash)
+
+    delay = request.app.get('delay')
+
     if not os.path.exists(files_path):
         logging.error('Error 404: link to non-existent folder')
         raise web.HTTPNotFound(
@@ -38,6 +40,8 @@ async def archive(request):
                 break
             logging.info('Sending archive chunk ...')
             await response.write(chunk)
+            if delay:
+                await asyncio.sleep(delay)
     except asyncio.CancelledError:
         logging.info('Download was interrupted')
     except BaseException as e:
@@ -55,8 +59,32 @@ async def handle_index_page(request):
 
 if __name__ == '__main__':
     app = web.Application()
+    parser = argparse.ArgumentParser(description='Archive download server')
+    parser.add_argument(
+        '-p', '--photos-path',
+        default=os.path.join('.', 'photos'),
+        help='path to photo archives'
+    )
+    parser.add_argument(
+        '-d', '--delay',
+        default=None,
+        type=float,
+        help='loading delay between chunks'
+    )
+    parser.add_argument(
+        '-nl', '--no-logging',
+        action='store_false',
+        dest='logging_enabled',
+        help='run without logging'
+    )
+    args = parser.parse_args()
+    app['photos_path'] = args.photos_path
+    app['delay'] = args.delay
     app.add_routes([
         web.get('/', handle_index_page),
         web.get('/archive/{archive_hash}/', archive),
     ])
+    if args.logging_enabled:
+        logging.basicConfig(level=logging.INFO)
+    logging.info('server startup...')
     web.run_app(app)
