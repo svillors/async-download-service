@@ -18,7 +18,8 @@ async def archive(request):
     files_path = os.path.join('.', 'photos', archive_hash)
     if not os.path.exists(files_path):
         logging.error('Error 404: link to non-existent folder')
-        raise web.HTTPNotFound(text='Error 404\nАрхив не существует или был удален')
+        raise web.HTTPNotFound(
+            text='Error 404\nАрхив не существует или был удален')
 
     await response.prepare(request)
 
@@ -29,13 +30,21 @@ async def archive(request):
         stderr=asyncio.subprocess.PIPE,
         cwd=files_path
     )
-    while True:
-        chunk = await proc.stdout.read(250)
-        if not chunk:
-            break
-        logging.info('Sending archive chunk ...')
-        await response.write(chunk)
-    return response
+    try:
+        while True:
+            chunk = await proc.stdout.read(250)
+            if not chunk:
+                logging.info('')
+                break
+            logging.info('Sending archive chunk ...')
+            await response.write(chunk)
+    except asyncio.CancelledError:
+        logging.info('Download was interrupted')
+    except BaseException as e:
+        logging.error(f'error while downloading archive: {type(e).__name__}')
+    finally:
+        proc.kill()
+        return response
 
 
 async def handle_index_page(request):
