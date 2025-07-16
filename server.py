@@ -12,7 +12,7 @@ async def archive(request):
     response.headers['Content-Type'] = 'application/zip'
     response.headers['Content-Disposition'] = 'attachment; filename="archive.zip"'
 
-    archive_hash = request.match_info.get('archive_hash')
+    archive_hash = request.match_info['archive_hash']
     folder_path = request.app.get('photos_path')
     files_path = os.path.join(folder_path, archive_hash)
 
@@ -33,21 +33,23 @@ async def archive(request):
         cwd=files_path
     )
     try:
-        while True:
+        chunk = True
+        while chunk:
             chunk = await proc.stdout.read(250)
-            if not chunk:
-                logging.info('')
-                break
             logging.info('Sending archive chunk ...')
             await response.write(chunk)
             if delay:
                 await asyncio.sleep(delay)
+        else:
+            logging.info('archive downloaded')
     except asyncio.CancelledError:
         logging.info('Download was interrupted')
+        raise
     except BaseException as e:
         logging.error(f'error while downloading archive: {type(e).__name__}')
     finally:
         proc.kill()
+        await proc.communicate()
         return response
 
 
